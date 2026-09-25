@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 480px; margin: 40px auto; padding: 0 16px; color: #1a1a1a; }
+    h1 { font-size: 18px; color: #1F3864; }
+    label { display: block; margin-top: 16px; font-weight: bold; font-size: 13px; }
+    input[type=text] { width: 100%; padding: 8px; margin-top: 4px; box-sizing: border-box; }
+    input[type=file] { margin-top: 6px; }
+    button { margin-top: 20px; padding: 10px 18px; background: #1F3864; color: #fff; border: none;
+             border-radius: 3px; font-size: 14px; cursor: pointer; }
+    button:disabled { background: #999; }
+    #status { margin-top: 18px; font-size: 13px; white-space: pre-wrap; }
+    .ok { color: #00703c; }
+    .err { color: #c00; }
+  </style>
+</head>
+<body>
+  <h1>ASHANTI GES — MMDA SCHOOL LIST SUBMISSION</h1>
+
+  <label for="staffId">Your Staff ID</label>
+  <input type="text" id="staffId" placeholder="e.g. GES-12345">
+
+  <label for="surname">Your Surname</label>
+  <input type="text" id="surname" placeholder="As registered with GES">
+
+  <label for="phone">Your Telephone Number</label>
+  <input type="text" id="phone" placeholder="e.g. 0244123456">
+
+  <label for="file">School List File (.xlsx)</label>
+  <input type="file" id="file" accept=".xlsx">
+
+  <button id="submitBtn" onclick="submitFile()">Submit</button>
+
+  <div id="status"></div>
+
+  <script>
+    function submitFile() {
+      const fileInput = document.getElementById('file');
+      const staffId = document.getElementById('staffId').value.trim();
+      const surname = document.getElementById('surname').value.trim();
+      const phone = document.getElementById('phone').value.trim();
+      const statusEl = document.getElementById('status');
+      const btn = document.getElementById('submitBtn');
+
+      if (!staffId || !surname || !phone) {
+        statusEl.innerHTML = '<span class="err">Please enter your Staff ID, Surname, and Telephone Number.</span>';
+        return;
+      }
+      if (!fileInput.files.length) {
+        statusEl.innerHTML = '<span class="err">Please choose the .xlsx file first.</span>';
+        return;
+      }
+
+      const file = fileInput.files[0];
+      btn.disabled = true;
+      statusEl.textContent = 'Uploading and checking ' + file.name + ' ...';
+
+      const reader = new FileReader();
+      reader.onload = function (e) {
+        const base64 = e.target.result.split(',')[1];
+        google.script.run
+          .withSuccessHandler(function (summary) {
+            btn.disabled = false;
+            let msg = 'Done.\n';
+            summary.details.forEach(function (d) {
+              msg += d.sheet + ': ' + d.accepted + ' school(s) accepted';
+              if (d.flagged) msg += ', ' + d.flagged + ' flagged for review';
+              msg += '\n';
+            });
+            if (summary.flagged) {
+              msg += '\nSome rows had issues (missing MMDA selection, bad phone/email/EMIS format) and were placed in a "Needs Review" tab instead of the main list.';
+            }
+            statusEl.innerHTML = '<span class="ok">' + msg.replace(/\n/g, '<br>') + '</span>';
+          })
+          .withFailureHandler(function (err) {
+            btn.disabled = false;
+            statusEl.innerHTML = '<span class="err">' + err.message + '</span>';
+          })
+          .processUpload(base64, file.name, staffId, surname, phone);
+      };
+      reader.readAsDataURL(file);
+    }
+  </script>
+</body>
+</html>
