@@ -343,6 +343,9 @@
   </div>
 
   <script>
+    // Apps Script Web App deployment that runs processUpload() via doPost()
+    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbw_PPgT99ncf8S_xLmspvzQEytCvosPHPFdfE3w7XBp8JxTmsTkkXEjxtmlH4DBX3Kw/exec';
+
     const dropzone = document.getElementById('dropzone');
     const fileInput = document.getElementById('file');
     const fileChip = document.getElementById('fileChip');
@@ -433,8 +436,17 @@
       const reader = new FileReader();
       reader.onload = function (e) {
         const base64 = e.target.result.split(',')[1];
-        google.script.run
-          .withSuccessHandler(function (summary) {
+
+        const payload = new FormData();
+        payload.append('fileData', base64);
+        payload.append('fileName', file.name);
+        payload.append('staffId', staffId);
+        payload.append('surname', surname);
+        payload.append('phone', phone);
+
+        fetch(SCRIPT_URL, { method: 'POST', body: payload })
+          .then(function (res) { return res.json(); })
+          .then(function (summary) {
             btn.disabled = false;
             spinner.style.display = 'none';
             submitLabel.textContent = 'Submit School List';
@@ -450,13 +462,12 @@
             }
             setStatus(html, 'ok');
           })
-          .withFailureHandler(function (err) {
+          .catch(function (err) {
             btn.disabled = false;
             spinner.style.display = 'none';
             submitLabel.textContent = 'Submit School List';
             setStatus('<strong>Something went wrong</strong><div class="note">' + err.message + '</div>', 'err');
-          })
-          .processUpload(base64, file.name, staffId, surname, phone);
+          });
       };
       reader.readAsDataURL(file);
     }
